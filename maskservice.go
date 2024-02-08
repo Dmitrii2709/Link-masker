@@ -69,7 +69,7 @@ func Run() {
 	pr.present(newMessage)
 }
 
-func (s Service) maskingSpam(a string) string {
+func (s *Service) maskingSpam(a string) string {
 
 	s1 := "http://"
 	s2 := " "
