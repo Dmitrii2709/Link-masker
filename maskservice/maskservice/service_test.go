@@ -3,15 +3,38 @@ package maskservice
 import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"log"
 	"testing"
 )
 
-func TestMaskingSpam(t *testing.T) {
+type mockProd struct{ mock.Mock }
 
-	var prod producer
-	var pres presenter
-	ser := &Service{prod, pres}
+func newMockProd() *mockProd { return &mockProd{} }
+
+func (m *mockProd) produce() (data []string, err error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, nil
+	}
+	return args.Get(0).([]string), args.Error(1)
+}
+
+type mockPres struct{ mock.Mock }
+
+func newMockPres() *mockPres { return &mockPres{} }
+
+func (m *mockPres) present(data []string) error {
+	args := m.Called(data)
+	return args.Error(0)
+}
+
+func TestService_MaskingSpam(t *testing.T) {
+
+	mpros := newMockProd()
+	mpros.On("produce").Return([]string{"http://hehe see you."}, nil)
+
+	mpres := newMockPres()
+	mpres.On("present", []string{"http://**** see you."}).Return(nil)
+	ser := Service{mpros, mpres}
 
 	var tests = []struct {
 		name   string
@@ -93,45 +116,20 @@ func TestMaskingSpam(t *testing.T) {
 	}
 }
 
-type mockProd struct{ mock.Mock }
-
-func newMockProd() *mockProd { return &mockProd{} }
-
-func (m *mockProd) produce(fileData string) (data []string, err error) {
-	args := m.Called([]byte(fileData))
-	if args.Get(0) == nil {
-		return nil, nil
-	}
-	return args.Get(0).([]string), args.Error(1)
-}
-
-type mockPres struct{ mock.Mock }
-
-func newMockPres() *mockPres { return &mockPres{} }
-
-func (m *mockPres) present(data []string) error {
-	args := m.Called(data)
-	return args.Error(0)
-}
-
 func TestService_Run(t *testing.T) {
-	var mockProd producer
-	var mockPres presenter
 
-	m := newMockProd()
-	m.On("produce", []byte("http://hehe see you.")).Return([]string{"http://hehe see you."}, nil)
+	mpros := newMockProd()
+	mpros.On("produce").Return([]string{"http://hehe see you."}, nil)
 
-	mp := newMockPres()
-	mp.On("present", []string{"http://**** see you."}).Return(nil)
-	ser := Service{mockProd, mockPres}
+	mpres := newMockPres()
+	mpres.On("present", []string{"http://**** see you."}).Return(nil)
 
-	//t.Run(a.name, func(t *testing.T) {
-	result := ser.Run()
-
-	if result != nil {
-		log.Fatal(result)
-		//t.Errorf("expected result to be nil, got %v", result)
+	service := Service{mpros, mpres}
+	err := service.Run()
+	if err != nil {
+		return
 	}
-	m.AssertCalled(t, "produce", []byte("http://hehe see you."))
-	mp.AssertCalled(t, "present", []string{"http://**** see you."})
+
+	mpros.AssertCalled(t, "produce")
+	mpres.AssertCalled(t, "present", []string{"http://**** see you."})
 }
