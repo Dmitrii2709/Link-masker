@@ -15,7 +15,7 @@ func NewFileProducer(inputFile string) *FileProducer {
 
 func (f *FileProducer) produce() ([]string, error) {
 
-	fileData, err := ioutil.ReadFile(f.inputFile)
+	var fileData, err = ioutil.ReadFile(f.inputFile)
 
 	if err != nil {
 		fmt.Println("Не могу прочитать файл\n", err)

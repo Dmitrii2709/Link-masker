@@ -26,12 +26,22 @@ func NewServiceName(prod producer, pres presenter) *Service {
 
 func (s *Service) Run() error {
 
+	text := make(chan string, 10)
+	fanIn := make(chan string, 10)
+
 	data, err := s.prod.produce()
 	if err != nil {
 		return fmt.Errorf("Service.producer.produce: %w", err)
 	}
 
-	data[0] = s.MaskingSpam(data[0])
+	for i, str := range data {
+		i := i
+		go func() {
+			s.MaskingSpam(text, fanIn)
+		}()
+		text <- str
+		data[i] = <-fanIn
+	}
 
 	err = s.pres.present(data)
 	if err != nil {
@@ -40,8 +50,9 @@ func (s *Service) Run() error {
 	return nil
 }
 
-func (s *Service) MaskingSpam(a string) string {
+func (s *Service) MaskingSpam(text <-chan string, fanIn chan<- string) {
 
+	a := <-text
 	s1 := "http://"
 	s2 := " "
 	s3 := "*"
@@ -65,5 +76,5 @@ func (s *Service) MaskingSpam(a string) string {
 			x = append(x, a[i])
 		}
 	}
-	return string(x)
+	fanIn <- string(x)
 }
